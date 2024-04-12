@@ -44,8 +44,10 @@ class SqlAlchemyRepository(AbstractRepository):
     
     
     async def update(self, filters: dict, data: dict):
-        stmt =  update(self.model).filter_by(**filters).values(**data)
-        await self.session.execute(stmt)
+        stmt =  update(self.model).filter_by(**filters).values(**data).returning(self.model)
+        res = await self.session.execute(stmt)
+        res = res.scalar_one()
+        return res
     
     
     async def delete(self, filters: dict):

@@ -5,12 +5,12 @@ from sqlalchemy.orm import DeclarativeBase
 
 async_engine = create_async_engine(settings.DATABASE_URL_asyncpg)
 
-asycn_session_maker = async_sessionmaker(async_engine)
+async_session_maker = async_sessionmaker(async_engine)
 
 
 
 async def get_async_session():
-    async with asycn_session_maker() as session:
+    async with async_session_maker() as session:
         yield session
 
 
