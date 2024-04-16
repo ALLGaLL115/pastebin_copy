@@ -1,11 +1,55 @@
+from contextlib import asynccontextmanager
+import logging
+from redis import asyncio as aioredis
 from fastapi import FastAPI
+from fastapi.requests import Request
+from fastapi.responses import JSONResponse
 from api.message import router as message_router
 
-app = FastAPI()
+
+
+REDIS_URL = 'redis://localhost'
+REDIS_DB = 0
+REDIS_PASS = 'RedisPassword'
+
+redis = None
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    global redis
+
+    if redis is None:
+        pool = aioredis.ConnectionPool.from_url(REDIS_URL)
+        redis = await aioredis.Redis(connection_pool=pool)
+
+    yield
+    redis.close(close_connection_pool=True)
+
+
+    
+
+app = FastAPI(lifespan=lifespan)
+
+@app.middleware("http")
+async def http_middleware(request: Request, call_next):
+    global redis
 
 
 
-
+    # Initial response when exception raised on 
+    #  `call_next` function
+    
+    try:
+        request.state.redis = redis
+        response = await call_next(request)
+    except Exception as e:
+        logging.exception(e)
+        # err = {'error': True, 'message': "Internal server error"},
+        response = JSONResponse(status_code=500)
+    finally:
+        return response
+    
 
 app.include_router(message_router)
 
@@ -16,17 +60,4 @@ app.include_router(message_router)
 
 
 
-    
-
-   
-       
-
-   
-   
-
-# @app.get("/messages")
-# async def get_message(mes_hash: str):
-#     mes = await mes_service.get_mes(mes_hash)
-#     mes_body = await s3.get(url = mes.hash)
-#     return {mes_metadata: mes.metadata, body: mes_body}
     

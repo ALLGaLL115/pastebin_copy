@@ -18,19 +18,18 @@ class S3service():
         """Save and returns url"""
         res = self.client_s3.put_object(
             Bucket=settings.BUCKET,
-            Key=hash_value+'.txt',
+            Key=str(hash_value)+'.txt',
             Body=body   
         )
 
-        print(res)
 
         mes_url = self.client_s3.generate_presigned_url(
             'get_object',
             Params={
                 "Bucket":settings.BUCKET,
-                "Key": hash_value+ ".txt"
+                "Key": str(hash_value)+'.txt'
             },
-            # Expires_In=3600
+            # ExpiresIn=3600
         )
 
         return mes_url
@@ -41,5 +40,7 @@ class S3service():
             Bucket=settings.BUCKET,
             Key=hash_value+'.txt',
         )
+
+
 
 

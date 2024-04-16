@@ -1,20 +1,6 @@
 from pydantic import BaseModel
 
 
-class UserDB(BaseModel):
-    id: int
-    name: str
-    email: str
-    hashed_password: str
-
-class UserRead(BaseModel):
-    name: str
-    email: str
-
-class UserCReate(BaseModel):
-    name: str
-    email: str
-    password: str
 
 
 class CreateMessage(BaseModel):
@@ -34,3 +20,15 @@ class MessageDB(BaseModel):
     name: str
     id_hash: str
     message_url: str
+
+
+
+
+
+from enum import Enum
+
+
+class Roles(Enum):
+    ADMIN = "admin"
+    USER = "user"
+    UNVERIFICATE = "unverificate"
