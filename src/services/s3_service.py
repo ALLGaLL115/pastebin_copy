@@ -17,7 +17,7 @@ class S3service():
     def save_message(self, hash_value: str, body: str) -> str:
         """Save and returns url"""
         res = self.client_s3.put_object(
-            Bucket=settings.BUCKET,
+            Bucket=settings.S3_BUCKET,
             Key=str(hash_value)+'.txt',
             Body=body   
         )
@@ -26,7 +26,7 @@ class S3service():
         mes_url = self.client_s3.generate_presigned_url(
             'get_object',
             Params={
-                "Bucket":settings.BUCKET,
+                "Bucket":settings.S3_BUCKET,
                 "Key": str(hash_value)+'.txt'
             },
             # ExpiresIn=3600
@@ -37,7 +37,7 @@ class S3service():
 
     def delete_message(self, hash_value: str):
         self.client_s3.delete_object(
-            Bucket=settings.BUCKET,
+            Bucket=settings.S3_BUCKET,
             Key=hash_value+'.txt',
         )
 

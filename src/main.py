@@ -4,8 +4,10 @@ from redis import asyncio as aioredis
 from fastapi import FastAPI
 from fastapi.requests import Request
 from fastapi.responses import JSONResponse
-from api.message import router as message_router
 
+
+from api.message import router as message_router
+from api.auth import router as auth_router
 
 
 REDIS_URL = 'redis://localhost'
@@ -31,27 +33,33 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
-@app.middleware("http")
-async def http_middleware(request: Request, call_next):
-    global redis
+# @app.middleware("http")
+# async def http_middleware(request: Request, call_next):
+#     global redis
 
 
 
-    # Initial response when exception raised on 
-    #  `call_next` function
+#     # Initial response when exception raised on 
+#     #  `call_next` function
     
-    try:
-        request.state.redis = redis
-        response = await call_next(request)
-    except Exception as e:
-        logging.exception(e)
-        # err = {'error': True, 'message': "Internal server error"},
-        response = JSONResponse(status_code=500)
-    finally:
-        return response
+#     try:
+#         request.state.redis = redis
+#         response = await call_next(request)
+#         return responses
+#     except Exception as e:
+#         logging.exception(e)
+
+#         # err = {'error': True, 'message': "Internal server error"},
+#         # response = JSONResponse(status_code=500)
+#         # return response
+#         raise
+    # finally:
+    #     response = JSONResponse(content="sdfs", status_code=500)
+    #     return response
     
 
-app.include_router(message_router)
+# app.include_router(message_router)
+app.include_router(auth_router)
 
 
         

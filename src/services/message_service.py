@@ -19,7 +19,6 @@ class MessageService:
                 hash_value = hashlib.sha256(str(mess_id).encode()).hexdigest()
 
                 url = S3service().save_message(hash_value=hash_value, body=new_message.body)
-                print(url)
 
                 await uow.messages.update(filters={"id":mess_id}, 
                                     data={

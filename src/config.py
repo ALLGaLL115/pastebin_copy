@@ -11,9 +11,11 @@ class Settings(BaseSettings):
     # DATABASE_PASSWORD: str
     # DATABASE_NAME: str
 
-    KEY_ID: str
-    SECRET_KEY: str
-    BUCKET: str
+    S3_KEY_ID: str
+    S3_SECRET_KEY: str
+    S3_BUCKET: str
+
+
 
 
     APP_URL: str
@@ -24,6 +26,11 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int
     
 
+
+    SMTP_HOST: str
+    SMTP_PORT: int
+    SMTP_USER: str
+    SMTP_PASSWORD: str
 
     @property
     def DATABASE_URL_asyncpg(self):

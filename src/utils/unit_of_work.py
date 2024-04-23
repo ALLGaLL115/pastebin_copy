@@ -4,11 +4,14 @@ from repositories.message_repo import MessageRepository
 from typing import Type
 
 from repositories.user_repo import UserRepository
+from repositories.verifycation_code_repo import VerifycationCodeRepository
+from sqlalchemy.ext.asyncio import AsyncSession
 
 class IUnitOfWork(ABC):
 
     users: Type[UserRepository]
     messages: Type[MessageRepository]
+    verification_codes: Type[VerifycationCodeRepository]
 
 
     @abstractmethod
@@ -40,9 +43,10 @@ class UnitOfWork(IUnitOfWork):
 
 
     async def __aenter__(self):
-        self.session = self.session_factory()
+        self.session: AsyncSession = self.session_factory()
         self.users = UserRepository(self.session)
         self.messages = MessageRepository(self.session)
+        self.verification_codes = VerifycationCodeRepository(self.session)
       
         return self
     
