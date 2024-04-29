@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from fastapi import HTTPException
-from sqlalchemy import insert, select, update, delete
+from sqlalchemy import insert, select, update, delete, or_
+from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from asyncpg.exceptions import UniqueViolationError
 class AbstractRepository(ABC):
@@ -33,19 +34,53 @@ class SqlAlchemyRepository(AbstractRepository):
         
         stmt =  insert(self.model).values(**data).returning(self.model.id)
         result = await self.session.execute(stmt)
-        return result.scalar_one()
+        return result.scalar_one().convert_to_model()
         
     
     async def get(self, **kwargs):
-        query = select(self.model).filter_by(**kwargs)
-        result = await self.session.execute(query)
-        result = result.scalar_one()
+        stmt = select(self.model).filter_by(**kwargs)
+        result = await self.session.execute(stmt)
+        result = result.scalar_one_or_none()
         # if len(result) <= 1:
         #     return result[0]
+        return result.convert_to_model()
+    
+    async def get_count(self, **filters):
+        stmt = select().select_from(self.model).filter_by(**filters)
+        response = await self.session.execute(stmt)
+        return response.scalar()
+        
+    
+    
+    async def get_all(self, **kwargs):
+        stmt = select(self.model).filter_by(**kwargs)
+        result = await self.session.execute(stmt)
+        result = [row.convert_to_model() for row in result.scalars().all()]
         return result
     
+    # async def get_alll(self, **kwargs):
+    #         print(kwargs)
+    #         filters = {getattr(self.model, key) == value for key, value in kwargs.items()}
+    #         print(*filters)
+    #         stmt = select(self.model).filter(*filters)
+    #         result = await self.session.execute(stmt)
+    #         print(result)
+    #         ss= result.scalars().all()
+    #         print(ss)
+            
     
-    async def update(self, filters: dict, data: dict):
+    #         return ss
+    async def get_all_or(self, **kwargs):
+        d = []
+        stmt = select(self.model).filter_by(or_(kwargs))
+        stmt = select().where()
+        result = await self.session.execute(stmt)
+        result = result.scalars().all()
+        return result
+
+    
+    
+    async def update(self, data: dict, **filters):
         stmt =  update(self.model).filter_by(**filters).values(**data).returning(self.model.id)
         res = await self.session.execute(stmt)
         res = res.scalar_one()

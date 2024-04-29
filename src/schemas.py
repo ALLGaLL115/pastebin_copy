@@ -6,6 +6,7 @@ from pydantic import BaseModel
 class CreateMessage(BaseModel):
     name: str
     body: str
+    user_id: int
 
 class MessageRead(BaseModel):
     name: str
@@ -19,6 +20,7 @@ class MessageDB(BaseModel):
     id: int
     name: str
     id_hash: str
+    user_id: int 
     message_url: str
 
 

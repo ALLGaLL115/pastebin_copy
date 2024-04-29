@@ -18,7 +18,7 @@ class Settings(BaseSettings):
 
 
 
-    APP_URL: str
+    APP_HOST: str
 
 
     SECRET_KEY: str

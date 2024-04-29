@@ -1,3 +1,4 @@
+import asyncio
 from config import settings
 from sqlalchemy.ext.asyncio import create_async_engine,  async_sessionmaker, AsyncSession
 from sqlalchemy.orm import DeclarativeBase
@@ -19,3 +20,9 @@ async def get_async_session():
 
 class Base(DeclarativeBase):
     pass
+
+from sqlalchemy import text, create_engine
+engine = create_engine(settings.DATABASE_URL_psycopg2)
+
+
+

@@ -4,12 +4,13 @@ from typing_extensions import Unpack
 from pydantic import BaseModel, ConfigDict
 
 
-class UserDBSchema(BaseModel):
+class UserDB(BaseModel):
     id: int
     name: str
     email: str
     password_hash: str
-    role: int
+    verificated: bool
+    followers_count: int 
     created_at: datetime
 
 class UserReadSchema(BaseModel):

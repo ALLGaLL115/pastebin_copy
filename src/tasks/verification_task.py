@@ -10,7 +10,6 @@ def get_email_message(code: str, addressee: str):
             email["Subject"] = "Code Verification"
             email["From"] = settings.SMTP_USER
             email["To"] = addressee
-
             email.set_content(
                 'div'
                 f'<h>Your code {code}</h>'

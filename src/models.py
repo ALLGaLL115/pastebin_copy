@@ -1,10 +1,13 @@
-from datetime import datetime, timedelta, UTC, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Annotated
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import VARCHAR, Column, INTEGER, ForeignKey, String, text, TIMESTAMP
 
 from database import Base
-from schemas import Roles
+from schemas import MessageDB
+from shcemas.subscription_schemas import SubscriptionDB
+from shcemas.user_schemas import UserDB
+from shcemas.verification_code_schemas import VerifycationCodeDB
 
 
 created_at = Annotated[datetime, mapped_column(server_default=text("TIMEZONE('utc', now())"))]
@@ -13,52 +16,82 @@ updated_at = Annotated[datetime, mapped_column(server_default=text("TIMEZONE('ut
                                                         onupdate=datetime.now(timezone.utc), type_=TIMESTAMP(timezone=True))]
 
 
-
-
-
-class Role(Base):
-    __tablename__="roles"
-    id: Mapped[int] = mapped_column(primary_key=True)
-    role: Mapped[str] = mapped_column(nullable=False)
-
-    # users_rel: Mapped[list["User"]] = relationship(
-    #     "User",
-    #     back_populates= "role"
-    # )
-
-
-# class Permissions(Base):
-#     __tablename__="permissions"
-#     id: Mapped[int] = mapped_column(primary_key=True)
-#     name: Mapped[str] = mapped_column(nullable=False)
-
-
-# class RolePermissions(Base):
-#     role_id: Mapped[int] = mapped_column( ForeignKey("roles.id"), primary_key=True)
-#     permision_id: Mapped[int] = mapped_column( ForeignKey("permissions"), primary_key=True),
-    
-
-
 class User(Base):
     __tablename__="users"
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(nullable=False, unique=True)  
-    email: Mapped[str] = mapped_column(nullable=False, unique=True)
+    email: Mapped[str] = mapped_column(nullable=False, unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(nullable=False)
-    role: Mapped[int] = mapped_column(ForeignKey("roles.id"), default= 3)
+    verificated: Mapped[bool] = mapped_column(default=False)
+    
     created_at: Mapped[created_at]
 
-    # role: Mapped["Role"] = relationship(
-    #     "Role",
-    #     back_populates= "users_rel"
-    # )
+    subscriptions: Mapped[list["Subscription"]] = relationship(
+        back_populates="subscriber"
+    )
+
+    folowers: Mapped[list["Subscription"]] = relationship(
+        back_populates="target"
+    )
+
+    messages: Mapped[list["Message"]] = relationship(
+        back_populates="user"
+    )
+
+    def convert_to_model(self):
+        return UserDB(
+            id = self.id,
+            name = self.name,
+            email = self.email,
+            password_hash = self.password_hash,
+            verificated = self.verificated,
+            created_at = self.created_at,
+        )
+  
+
+class Subscription(Base):
+    __tablename__="subscriptions"
+    subscriber_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True, )
+    target_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True, )
+
+    
+    subscriber: Mapped["User"] = relationship(
+        back_populates="subscriptions"
+    )
+
+    target: Mapped["User"] = relationship(
+        back_populates="folowers"
+    )
+
+    def convert_to_model(self):
+        return SubscriptionDB(
+            subscriber_id = self.subscriber_id,
+            target_id = self.target_id,
+            subscriber = self.subscriber,
+            target = self.target,  
+        )
+    
 
 class Message(Base):
     __tablename__="messages"
     id = Column("id", INTEGER, primary_key= True,)
     name = Column("name", String, nullable=False)
     id_hash = Column("id_hash", VARCHAR(256), unique=True)
+    user_id = Column("user_id", INTEGER, ForeignKey("users.id", ondelete="CASCADE"))
     message_url = Column("message_url", String)
+
+    user: Mapped["User"] = relationship(
+        back_populates="messages"
+    )
+
+    def convert_to_model(self):
+        return MessageDB(
+            id = self.id,
+            name = self.name,
+            id_hash = self.id_hash,
+            user_id = self.user_id,
+            message_url = self.message_url,            
+        )
 
 
 
@@ -67,7 +100,18 @@ class VerifycationCode(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     code: Mapped[str] = mapped_column(nullable=False, unique=True)
-    expiry_time: Mapped[datetime] = mapped_column(nullable=False, default= datetime.now(UTC) + timedelta(minutes=1), type_=TIMESTAMP(timezone=True))
+    expiry_time: Mapped[datetime] = mapped_column(nullable=False, default= datetime.now(timezone.utc) + timedelta(minutes=1), type_=TIMESTAMP(timezone=True))
+
+    def convert_to_model(self):
+        return VerifycationCodeDB(
+            id = self.id,
+            user_id = self.user_id,
+            code = self.code,
+            expiry_time = self.expiry_time,
+        )
+    
+
+    
 
 
 

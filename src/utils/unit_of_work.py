@@ -3,6 +3,7 @@ from database import async_session_maker
 from repositories.message_repo import MessageRepository
 from typing import Type
 
+from repositories.subscriptions_repo import SubscriptionsRepository
 from repositories.user_repo import UserRepository
 from repositories.verifycation_code_repo import VerifycationCodeRepository
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,6 +13,7 @@ class IUnitOfWork(ABC):
     users: Type[UserRepository]
     messages: Type[MessageRepository]
     verification_codes: Type[VerifycationCodeRepository]
+    subscriptions: Type[SubscriptionsRepository]
 
 
     @abstractmethod
@@ -47,6 +49,7 @@ class UnitOfWork(IUnitOfWork):
         self.users = UserRepository(self.session)
         self.messages = MessageRepository(self.session)
         self.verification_codes = VerifycationCodeRepository(self.session)
+        self.subscriptions = SubscriptionsRepository(self.session)
       
         return self
     

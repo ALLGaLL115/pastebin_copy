@@ -4,7 +4,7 @@ from typing import Annotated
 
 from fastapi.security import OAuth2PasswordBearer
 from models import User
-from shcemas.user_schemas import UserDBSchema
+from shcemas.user_schemas import UserDB
 from utils.unit_of_work import IUnitOfWork, UnitOfWork
 from jose import jwt, JWTError
 from config import settings
@@ -35,10 +35,16 @@ async def get_current_user(uow: UOWDep, token: Annotated[str, Depends(oauth2_sch
             logging.error(e)
             raise credentials_exception
         user = await uow.users.get(filters={"name":username})
-        user = UserDBSchema.model_validate(user, from_attributes=True)
         if user is None:
             raise credentials_exception
         return user
 
 
-CURUser = Annotated[User, Depends(get_current_user)]
+CURUser = Annotated[UserDB, Depends(get_current_user)]
+
+async def get_verificated_user(current_user: CURUser):
+    if not current_user.verificated:
+        raise HTTPException(status_code=400, detail="Non verificated user")
+    return current_user
+
+VERUser = Annotated[UserDB, Depends(get_verificated_user)]

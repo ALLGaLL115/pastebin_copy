@@ -6,11 +6,12 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import ChunkedIteratorResult, select
 from models import User
 from services.verification_service import VerificationCodeCreate, VerificationCodeService
-from shcemas.user_schemas import UserCreateSchema, UserDBSchema
+from shcemas.user_schemas import UserCreateSchema, UserDB
 from services.auth_service import AuthenticationService, Tokenn, get_password_hash
 from api.dependencies import CURUser, UOWDep, get_current_user
 from services.user_service import UserService
 from pydantic import BaseModel
+from sqlalchemy.exc import IntegrityError, NoResultFound
 
 from tasks.verification_task import send_email_code
 
@@ -19,113 +20,93 @@ from sqlalchemy.exc import IntegrityError
 from email_validator import EmailSyntaxError, validate_email
 
 
-router = APIRouter()
+router = APIRouter(
+    tags=['Auth']
+)
 
 
-
-
-
-
-@router.post('/sing_up')
-async def registrate_user(uow: UOWDep, new_user: UserCreateSchema):
-    async with uow:
+@router.post("/sing_up")
+async def registate_user(uow: UOWDep, new_user: UserCreateSchema):
+# Перенести всё в сервис 
+ async with uow:
         try:
             validate_email(new_user.email)
 
-            query = select(User).filter_by(email=new_user.email, name=new_user.name)
-            users_db = await uow.session.execute(query)
-            users_db = users_db.scalars().all()
-            
-            if len(users_db) == 0:
-                user = User(name=new_user.name, email=new_user.email, password_hash=get_password_hash(new_user.password))
-                uow.session.add(user)
-                await uow.commit()
-                print(user.id)
-                code =  await VerificationCodeService().create(uow, VerificationCodeCreate(user_id=user.id, email=user.email))
-                send_email_code.delay(email=new_user.email, code = code)
-
-                return JSONResponse(content ={"message":"succes", "user_id": user.id}, status_code=200)
+            chk = await uow.users.check_unique_values(email=new_user.email, name=new_user.name)
+            data_dict = {"name":new_user.name, "email":new_user.email, "password_hash": get_password_hash(new_user.password)}
+            if chk == "update":
+                user: UserDB = await uow.users.update(data=data_dict, email=new_user.email)
+            if chk == "create":
+                user: UserDB = await uow.users.create(**data_dict)
+            code =  await VerificationCodeService().create(uow, user_id=user.id)
+            if code is None:
+                    return JSONResponse(content ={"message":"succes", "user_id": user.id}, status_code=200)
             else:
-                erors = []
-                print(users_db)
-                for i in users_db:
-                    if new_user.email == i.email:
-                        erors.append("This email is already used")
-                    if new_user.name == i.name:
-                        erors.append("This username is already used")
-                
-                raise HTTPException(status_code=409, detail= {"errors": erors})
-                
+                send_email_code.delay(email=new_user.email, code = code)
+                await uow.commit()
+                return JSONResponse(content ={"message":"succes", "user_id": user.id}, status_code=200)
 
 
         except EmailSyntaxError as e:
             raise HTTPException(status_code=400, detail={"error":e.__str__()})
 
-        except IntegrityError as e:
-            if "users_email_key" in e._message():
-                raise HTTPException(status_code=409, detail= "This email is already used")
-            if "users_name_key" in e._message():
-                raise HTTPException(status_code=409, detail= "This username is already used")
-        # except Exception as e:
-        #     logging.error(e)
-        #     if e == HTTPException:
-        #         raise
-        #     raise HTTPException(status_code=500)        
+        except HTTPException:
+            raise
 
+        except Exception as e:
+            logging.error(e)
+            raise HTTPException(status_code=500)     
+        
 
+# Есть ли такой код 
+# код 200 : Узнать по какой причине(условиям) его нет
+# по user_id, по коду и время
+# если таких нет создать новый 
 
 @router.post("/verification")
 async def verificate(uow: UOWDep, code: str, user_id: int):
     async with uow:
-        user = await uow.session.get(User, user_id)
-        res = await VerificationCodeService().validate(uow, user.id, code)     
-        return res
+        try:
+
+            await uow.verification_codes.validate_code(code=code, user_id=user_id)
+            await uow.users.update(data={"verificated":True}, id=user_id)
+            await uow.commit()
+            return JSONResponse(content="Succes", status_code=200)
+        
+        except NoResultFound as e:
+            logging.error(e)
+            await uow.rollback()
+            raise HTTPException(status_code=404, detail="Wrong code")
+
+@router.post("/recreate_code")
+async def recreate_code(uow: UOWDep, user_id: int):
+    async with uow:
+        try:
+            user:UserDB = await uow.users.get(id=user_id)
+            code= await VerificationCodeService().create(uow, user_id)
+            if code is None:
+                return JSONResponse(content ={"message":"succes", "user_id": user_id}, status_code=200)
+            else:
+                send_email_code.delay(email=user.email, code = code)
+                await uow.session.commit()
+                await uow.session.close()  
+                return JSONResponse(content ={"message":"succes", "user_id": user_id}, status_code=200)
+        except EmailSyntaxError as e:
+                raise HTTPException(status_code=400, detail={"error":e.__str__()})
+
+        except HTTPException:
+            raise 
+
+        except Exception as e:
+            logging.exception(e)
+            raise HTTPException(status_code=500) 
+
+
         
 
 @router.post("/login")
 async def login(uow: UOWDep, form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
     res = await AuthenticationService.login(uow=uow, form_data=form_data)
     return res 
-
-
-
-        
-        
-
-
-# @router.post("/sing_up")
-# async def registrate_user(uow: UOWDep, new_user: UserCreateSchema):
-#         # try:
-#             user_id = await UserService().create(uow, new_user)
-#             code = await VerificationCodeService().create(
-#                 uow, code_create_model=VerificationCodeCreate(
-#                     user_id=user_id, email=new_user.email
-#                     ))
-#             send_email_code.delay(email=new_user.email, code = code)
-
-#             return JSONResponse("success", 200)
-#         # except Exception as e:
-#         #     logging.error(e)
-#         #     raise HTTPException(status_code=500)
-        
-
-        
-        
-
-
-# @router.post("/verify_by_email")
-# async def verificate_user(uow: UOWDep, email: str, code: str, ):
-#     res = await VerificationCodeService().validate(uow,  code)
-#     return res
-
-
-
-
-# @router.post("/login")
-# async def create_acces_token(form_data:  Annotated[OAuth2PasswordRequestForm, Depends()], uow: UOWDep):
-#     res = await AuthenticationService.login(uow, form_data)
-#     return res
-
-
 
 

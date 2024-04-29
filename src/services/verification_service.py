@@ -1,4 +1,5 @@
 
+import datetime
 from email.mime.text import MIMEText
 import logging
 import secrets
@@ -11,6 +12,7 @@ from sqlalchemy.exc import IntegrityError, NoResultFound
 import smtplib
 from email.message import EmailMessage
 
+from models import VerifycationCode
 from utils.unit_of_work import IUnitOfWork
 from config import settings
 
@@ -28,39 +30,45 @@ def generate_verification_code(length = 6):
 
 class VerificationCodeService:
 
-    async def create(self, uow: IUnitOfWork, code_create_model: VerificationCodeCreate):  
-        async with uow:
+    async def create(self, uow: IUnitOfWork, user_id:int)-> str|None:  
+        # async with uow:
             while True:
                 try:
-                    verification_code = generate_verification_code()
-                    await uow.verification_codes.create(data={"user_id": code_create_model.user_id, "code": verification_code})
-                    break
+                    existing_code: VerifycationCode = await uow.verification_codes.get_valid_user_code(user_id=user_id)
+                    # print(existing_code)
+                    if existing_code == None:
+                        verification_code = generate_verification_code()                            
+                        await uow.verification_codes.create(user_id=user_id, code= verification_code, expiry_time=datetime.datetime.now(datetime.UTC) + datetime.timedelta(minutes=1))
+                        # await uow.commit()
+                        return verification_code   
+                    else:
+                        return None
                 except IntegrityError as e:                
                     if "users_code_key" in str(e):
-                        await uow.rollback()
+                        # await uow.rollback()
                         continue
 
-            await uow.commit()
-            return verification_code
+                    
                 
                
-    async def validate(self, uow:IUnitOfWork, user_id: int, code:str):
+    async def validate_code(self, uow:IUnitOfWork, user_id: int, code:str):
         async with uow:
             try:
-                await uow.verification_codes.verificate(code=code)
-                await uow.users.update(filters={"id":user_id}, data={"role":2})
+                await uow.verification_codes.validate_code(code=code, user_id=user_id)
+                await uow.users.update(data={"verificated":True}, id=user_id)
                 await uow.commit()
                 return JSONResponse(content="Succes", status_code=200)
             
             except NoResultFound as e:
                 logging.error(e)
                 await uow.rollback()
-                # raise HTTPException(status_code=404, detail="Wrong code")
+                uow.verification_codes.create()
+                raise HTTPException(status_code=404, detail="Wrong code")
             
-            except Exception as e:
-                logging.error(e)
-                await uow.rollback()
-                raise HTTPException(status_code=500)
+            # except Exception as e:
+            #     logging.error(e)
+            #     await uow.rollback()
+            #     raise HTTPException(status_code=500)
 
             
 

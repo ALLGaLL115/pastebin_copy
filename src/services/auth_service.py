@@ -1,17 +1,13 @@
 
-from datetime import timedelta, timezone, datetime, UTC
-import time
-
-from sqlalchemy import delete, and_, or_
-from config import settings
-from typing import Annotated
+from datetime import timedelta, timezone, datetime
+import logging
 from fastapi import Depends, HTTPException, status
 from pydantic import BaseModel
 from api.dependencies import UOWDep
-from models import VerifycationCode
 from utils.unit_of_work import IUnitOfWork
 from shcemas.user_schemas import *
-
+from email_validator import EmailSyntaxError, validate_email
+from config import settings
 from passlib.context import CryptContext
 from jose import jwt, JWTError
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -50,7 +46,7 @@ def get_password_hash(password):
 
 
 async def authenticate_user(uow: IUnitOfWork, username: str, password: str):
-        user: UserDBSchema = await uow.users.get(filters={"name": username})
+        user: UserDB = await uow.users.get(name=username)
         if not user:
             return False
         if not verify_password(password, user.password_hash):
@@ -83,14 +79,53 @@ def create_access_token(data: dict, live_time_minutes: int|None= None):
 
 
 class AuthenticationService:
-    # async def sing_in(self, uow: IUnitOfWork, data: SingUpForm):
+    
+
+    # async def sing_up(uow: UOWDep, new_user: UserCreateSchema):
     #     async with uow:
     #         try:
-    #             user_id = await uow.users().create(data=data.model_dump())
+    #             validate_email(new_user.email)
+
+    #             chk = await uow.users.check_unique_values(email=new_user.email, name=new_user.name)
+    #             data_dict = {"name":new_user.name, "email":new_user.email, "password_hash": get_password_hash(new_user.password)}
+    #             if chk == "update":
+    #                 user_id = await uow.users.update(data=data_dict, email=new_user.email)
+    #             if chk == "create":
+    #                 user_id = await uow.users.create(**data_dict)
+    #             await uow.commit()
+    #             code =  await VerificationCodeService().create(uow, user_id=user_id)
+    #             if code is None:
+    #                     return JSONResponse(content ={"message":"succes", "user_id": user_id}, status_code=200)
+    #             else:
+    #                 print("Sending")
+    #                 send_email_code.delay(email=new_user.email, code = code)
+    #                 return JSONResponse(content ={"message":"succes", "user_id": user_id}, status_code=200)
+    #         except EmailSyntaxError as e:
+    #             raise HTTPException(status_code=400, detail={"error":e.__str__()})
+
+    #         except HTTPException:
+    #             raise
 
     #         except Exception as e:
     #             logging.error(e)
-    #             raise HTTPException(status_code=500)
+    #             raise HTTPException(status_code=500)     
+
+    
+
+    async def verificate(uow: UOWDep, code: str, user_id: int):
+        async with uow:
+            try:
+
+                await uow.verification_codes.validate_code(code=code, user_id=user_id)
+                await uow.users.update(data={"verificated":True}, id=user_id)
+                await uow.commit()
+                return JSONResponse(content="Succes", status_code=200)
+            
+            except NoResultFound as e:
+                logging.error(e)
+                await uow.rollback()
+                raise HTTPException(status_code=404, detail="Wrong code")
+        
 
 
 
