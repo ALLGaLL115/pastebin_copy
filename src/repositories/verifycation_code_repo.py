@@ -10,10 +10,6 @@ from utils.repository import SqlAlchemyRepository
 class VerifycationCodeRepository(SqlAlchemyRepository):
     model = VerifycationCode
 
-    # async def 
-# существует код для пользователя или нет?
-# превышено ли время ожидания?
-
 
     async def get_valid_user_code(self, user_id)-> VerifycationCode|None:
         now = datetime.datetime.now(datetime.UTC)
@@ -38,11 +34,6 @@ class VerifycationCodeRepository(SqlAlchemyRepository):
         )
         res = await self.session.execute(query)
         res = res.scalar_one()
-
-
-
-    
-    
 
             
     async def delete_unvalid_codes(self):

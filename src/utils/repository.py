@@ -32,9 +32,10 @@ class SqlAlchemyRepository(AbstractRepository):
 
     async def create(self, **data):
         
-        stmt =  insert(self.model).values(**data).returning(self.model.id)
+        stmt =  insert(self.model).values(**data).returning(self.model)
         result = await self.session.execute(stmt)
-        return result.scalar_one().convert_to_model()
+        result = result.scalar_one()
+        return result.convert_to_model()
         
     
     async def get(self, **kwargs):
@@ -46,30 +47,20 @@ class SqlAlchemyRepository(AbstractRepository):
         return result.convert_to_model()
     
     async def get_count(self, **filters):
-        stmt = select().select_from(self.model).filter_by(**filters)
+        stmt = select(func.count()).select_from(self.model).filter_by(**filters)
         response = await self.session.execute(stmt)
-        return response.scalar()
+        return  response.scalar()
         
     
     
     async def get_all(self, **kwargs):
         stmt = select(self.model).filter_by(**kwargs)
         result = await self.session.execute(stmt)
-        result = [row.convert_to_model() for row in result.scalars().all()]
+        result = result.scalars().all()
+        result = [row.convert_to_model() for row in result]
         return result
+   
     
-    # async def get_alll(self, **kwargs):
-    #         print(kwargs)
-    #         filters = {getattr(self.model, key) == value for key, value in kwargs.items()}
-    #         print(*filters)
-    #         stmt = select(self.model).filter(*filters)
-    #         result = await self.session.execute(stmt)
-    #         print(result)
-    #         ss= result.scalars().all()
-    #         print(ss)
-            
-    
-    #         return ss
     async def get_all_or(self, **kwargs):
         d = []
         stmt = select(self.model).filter_by(or_(kwargs))
@@ -81,10 +72,10 @@ class SqlAlchemyRepository(AbstractRepository):
     
     
     async def update(self, data: dict, **filters):
-        stmt =  update(self.model).filter_by(**filters).values(**data).returning(self.model.id)
+        stmt =  update(self.model).filter_by(**filters).values(**data).returning(self.model)
         res = await self.session.execute(stmt)
         res = res.scalar_one()
-        return res
+        return res.convert_to_model()
     
     
     async def delete(self, **filters):

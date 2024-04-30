@@ -8,6 +8,7 @@ from config import settings
 
 from api.message import router as message_router
 from api.auth import router as auth_router
+from api.subscriptions import router as subscription_router
 
 
 REDIS_URL = 'redis://localhost'
@@ -26,7 +27,7 @@ async def lifespan(app: FastAPI):
         redis = await aioredis.Redis(connection_pool=pool)
 
     yield
-    redis.close(close_connection_pool=True)
+    await redis.close(close_connection_pool=True)
 
 
     
@@ -60,6 +61,8 @@ async def http_middleware(request: Request, call_next):
 
 app.include_router(auth_router)
 app.include_router(message_router)
+app.include_router(subscription_router)
+
 
 
         

@@ -34,7 +34,7 @@ async def get_current_user(uow: UOWDep, token: Annotated[str, Depends(oauth2_sch
         except JWTError as e :
             logging.error(e)
             raise credentials_exception
-        user = await uow.users.get(filters={"name":username})
+        user = await uow.users.get(name=username)
         if user is None:
             raise credentials_exception
         return user

@@ -33,18 +33,22 @@ class UserRepository(SqlAlchemyRepository):
                 else:
                     db_unverificated_values.append("name")
        
+       
         if not users:
             return "create"
 
         if db_verificated_values:
             raise HTTPException(status_code=409, detail=[f"This {x} already used" for x in db_verificated_values])
         
+   
         if len(users)>1:
             raise HTTPException(status_code=409, detail="This username already used")
         
+   
         if len(users) == 1 and len(db_unverificated_values) ==1 and "name" in db_unverificated_values:
             raise HTTPException(status_code=409, detail="This username already used")
 
+  
         if len(users) == 1 and "email" in db_unverificated_values:
             return "update"
         

@@ -3,7 +3,7 @@ from redis import Redis
 
 from api.dependencies import CURUser, UOWDep, VERUser, get_redis
 from services.message_service import MessageService
-from schemas import CreateMessage, MessageDB
+from shcemas.message_schemas import CreateMessage, MessageDB, MessageUpdate
 from utils.unit_of_work import IUnitOfWork, UnitOfWork
 
 from models import Message
@@ -57,30 +57,25 @@ router = APIRouter(
 
 @router.post("/create")
 async def create_message( name: str, body: str, uow: UOWDep, user: VERUser, redis: Redis=Depends(get_redis)):
-   async with uow:
+   # async with uow:
       
       res = await  MessageService().create(uow=uow, user=user, new_message= CreateMessage(name=name, body=body, user_id=user.id), redis=redis)
       return res
       
 
 @router.get('/get/{hash_value}')
-async def get_message(uow: UOWDep, hash_value:str, user: VERUser, redis=Depends(get_redis)):
-   if await redis.exists(hash_value) == 0:
-      res = await MessageService().read(uow, hash_value)
-      await redis.set(hash_value, res.model_dump_json())
-      return res
-
-   res = await redis.get(hash_value)
-   return  MessageDB.model_validate_json(res)
+async def get_message(uow: UOWDep, hash_value:str, redis=Depends(get_redis)):
+   res = await MessageService().read(uow, hash_value, redis)
+   return  res
    
 
 @router.put("/update")
-async def update_message(uow: UOWDep, hash_value: str, mes: CreateMessage):
-   res = await MessageService().update(uow, hash_value, mes)
+async def update_message(uow: UOWDep, hash_value: str, ver_user: VERUser, updates: MessageUpdate, redis: Redis=Depends(get_redis)):  
+   res = await MessageService().update(uow=uow, hash_value=hash_value, ver_user=ver_user, updates=updates, redis=redis)
    return res
 
 
 @router.delete("/delete")
-async def delete_message(uow: UOWDep, hash_value:str):
-   res = await MessageService().delete(uow, hash_value)
+async def delete_message(uow: UOWDep, hash_value:str, ver_user:VERUser, redis: Redis=Depends(get_redis)):
+   res = await MessageService().delete(uow=uow, hash_value=hash_value, ver_user=ver_user, redis=redis,)
    return res

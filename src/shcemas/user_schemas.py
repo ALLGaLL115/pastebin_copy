@@ -10,7 +10,6 @@ class UserDB(BaseModel):
     email: str
     password_hash: str
     verificated: bool
-    followers_count: int 
     created_at: datetime
 
 class UserReadSchema(BaseModel):

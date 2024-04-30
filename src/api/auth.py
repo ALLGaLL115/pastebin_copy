@@ -17,7 +17,7 @@ from tasks.verification_task import send_email_code
 
 
 from sqlalchemy.exc import IntegrityError
-from email_validator import EmailSyntaxError, validate_email
+from email_validator import EmailSyntaxError, EmailUndeliverableError, validate_email
 
 
 router = APIRouter(
@@ -49,13 +49,16 @@ async def registate_user(uow: UOWDep, new_user: UserCreateSchema):
 
         except EmailSyntaxError as e:
             raise HTTPException(status_code=400, detail={"error":e.__str__()})
+        
+        except EmailUndeliverableError as e:
+            raise HTTPException(status_code=400, detail={"error":e.__str__()})
 
         except HTTPException:
             raise
 
-        except Exception as e:
-            logging.error(e)
-            raise HTTPException(status_code=500)     
+        # except Exception as e:
+        #     logging.error(e)
+        #     raise HTTPException(status_code=500)     
         
 
 # Есть ли такой код 
@@ -94,7 +97,8 @@ async def recreate_code(uow: UOWDep, user_id: int):
         except EmailSyntaxError as e:
                 raise HTTPException(status_code=400, detail={"error":e.__str__()})
 
-        except HTTPException:
+        except HTTPException as e:
+            logging.exception(e)
             raise 
 
         except Exception as e:

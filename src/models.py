@@ -4,7 +4,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import VARCHAR, Column, INTEGER, ForeignKey, String, text, TIMESTAMP
 
 from database import Base
-from schemas import MessageDB
+from shcemas.message_schemas import MessageDB
 from shcemas.subscription_schemas import SubscriptionDB
 from shcemas.user_schemas import UserDB
 from shcemas.verification_code_schemas import VerifycationCodeDB
@@ -15,6 +15,29 @@ created_at = Annotated[datetime, mapped_column(server_default=text("TIMEZONE('ut
 updated_at = Annotated[datetime, mapped_column(server_default=text("TIMEZONE('utc', now())"),
                                                         onupdate=datetime.now(timezone.utc), type_=TIMESTAMP(timezone=True))]
 
+
+
+class Subscription(Base):
+    __tablename__="subscriptions"
+    subscriber_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True, )
+    target_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True, )
+    subscriber = relationship("User", foreign_keys=[subscriber_id])
+    target = relationship("User", foreign_keys=[target_id])
+
+    # subscriber: Mapped["User"] = relationship(
+    #     back_populates="subscriptions"
+    # )
+
+    # target: Mapped["User"] = relationship(
+    #     back_populates="folowers"
+    # )
+
+    def convert_to_model(self):
+        return SubscriptionDB(
+            subscriber_id = self.subscriber_id,
+            target_id = self.target_id,
+        )
+    
 
 class User(Base):
     __tablename__="users"
@@ -27,10 +50,12 @@ class User(Base):
     created_at: Mapped[created_at]
 
     subscriptions: Mapped[list["Subscription"]] = relationship(
+        foreign_keys=[Subscription.subscriber_id],
         back_populates="subscriber"
     )
 
     folowers: Mapped[list["Subscription"]] = relationship(
+        foreign_keys=[Subscription.target_id],
         back_populates="target"
     )
 
@@ -39,6 +64,7 @@ class User(Base):
     )
 
     def convert_to_model(self):
+        print(self)
         return UserDB(
             id = self.id,
             name = self.name,
@@ -49,34 +75,12 @@ class User(Base):
         )
   
 
-class Subscription(Base):
-    __tablename__="subscriptions"
-    subscriber_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True, )
-    target_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True, )
-
-    
-    subscriber: Mapped["User"] = relationship(
-        back_populates="subscriptions"
-    )
-
-    target: Mapped["User"] = relationship(
-        back_populates="folowers"
-    )
-
-    def convert_to_model(self):
-        return SubscriptionDB(
-            subscriber_id = self.subscriber_id,
-            target_id = self.target_id,
-            subscriber = self.subscriber,
-            target = self.target,  
-        )
-    
 
 class Message(Base):
     __tablename__="messages"
     id = Column("id", INTEGER, primary_key= True,)
     name = Column("name", String, nullable=False)
-    id_hash = Column("id_hash", VARCHAR(256), unique=True)
+    hash_id = Column("hash_id", VARCHAR(256), unique=True)
     user_id = Column("user_id", INTEGER, ForeignKey("users.id", ondelete="CASCADE"))
     message_url = Column("message_url", String)
 
@@ -85,10 +89,10 @@ class Message(Base):
     )
 
     def convert_to_model(self):
-        return MessageDB(
+            return MessageDB(
             id = self.id,
             name = self.name,
-            id_hash = self.id_hash,
+            hash_id = self.hash_id,
             user_id = self.user_id,
             message_url = self.message_url,            
         )
@@ -112,6 +116,7 @@ class VerifycationCode(Base):
     
 
     
+
 
 
 
