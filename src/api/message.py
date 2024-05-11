@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends
 from redis import Redis
 
 from api.dependencies import CURUser, UOWDep, VERUser, get_redis
+from schemas.message_schemas import CreateMessage, MessageUpdate
 from services.message_service import MessageService
-from shcemas.message_schemas import CreateMessage, MessageDB, MessageUpdate
 from utils.unit_of_work import IUnitOfWork, UnitOfWork
 
 from models import Message

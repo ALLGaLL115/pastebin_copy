@@ -16,6 +16,11 @@ class Settings(BaseSettings):
     S3_BUCKET: str
 
 
+    REDIS_URL: str
+    REDIS_DB: int
+    REDIS_PASS: str
+
+
 
 
     APP_HOST: str

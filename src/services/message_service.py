@@ -4,9 +4,8 @@ from random import randint
 from fastapi import HTTPException
 from fastapi.responses import JSONResponse
 from redis import Redis
-from shcemas.message_schemas import CreateMessage, MessageDB, MessageRead, MessageUpdate
-from shcemas.user_schemas import UserDB
-from shcemas.utils import update_model
+from schemas.message_schemas import CreateMessage, MessageDB, MessageUpdate
+from schemas.user_schemas import UserDB
 from utils.unit_of_work import IUnitOfWork
 import hashlib
 from config import settings

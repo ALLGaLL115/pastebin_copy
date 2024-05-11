@@ -2,15 +2,20 @@
 from datetime import timedelta, timezone, datetime
 import logging
 from fastapi import Depends, HTTPException, status
-from pydantic import BaseModel
-from api.dependencies import UOWDep
-from utils.unit_of_work import IUnitOfWork
-from shcemas.user_schemas import *
-from email_validator import EmailSyntaxError, validate_email
+from fastapi.responses import JSONResponse
+from models import VerifycationCode
+from schemas.auth import Tokenn
+from schemas.user_schemas import UserCreateSchema, UserDB
+from services.verification_service import VerificationCodeService
+from tasks.verification_task import send_email_code
+from utils.unit_of_work import IUnitOfWork, UnitOfWork
+from email_validator import EmailSyntaxError, EmailUndeliverableError, validate_email
 from config import settings
 from passlib.context import CryptContext
 from jose import jwt, JWTError
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+
+from sqlalchemy.exc import IntegrityError, NoResultFound
 
 
 # SECRET_KEY = "09d25e094faa6ca2556c818166b7a9563b93f7099f6f0f4caa6cf63b88e8d3e7"
@@ -18,19 +23,6 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 # ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 
-class SingUpForm(BaseModel):
-    name: str
-    email: str
-    password: str
-
-
-class Tokenn(BaseModel):
-    access_token: str
-    token_type: str
-
-
-class TokenData(BaseModel):
-    username: str|None = None
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -67,52 +59,67 @@ def create_access_token(data: dict, live_time_minutes: int|None= None):
 
 
 
-
-
-
-
-
-
-
-
-
-
-
 class AuthenticationService:
+
+
+    async def registration(uow:UnitOfWork, new_user:UserCreateSchema):
+        async with uow:
+            try:
+                validate_email(new_user.email)
+
+                chk = await uow.users.check_unique_values(email=new_user.email, name=new_user.name)
+                data_dict = {"name":new_user.name, "email":new_user.email, "password_hash": get_password_hash(new_user.password)}
+                if chk == "update":
+                    user: UserDB = await uow.users.update(data=data_dict, email=new_user.email)
+                if chk == "create":
+                    user: UserDB = await uow.users.create(**data_dict)
+                await uow.commit()
+                return JSONResponse(content ={"status":"succes", "user_id": user.id}, status_code=200)
+
+
+            except EmailSyntaxError as e:
+                await uow.rollback()
+                raise HTTPException(status_code=400, detail={"error":e.__str__()})
+            
+            except EmailUndeliverableError as e:
+                await uow.rollback()
+                raise HTTPException(status_code=400, detail={"error":e.__str__()})
+
+            except HTTPException:
+                await uow.rollback()
+                raise
+        
+            except Exception as e:
+                logging.error(e)
+                await uow.rollback()
+                raise HTTPException(status_code=500, detail=f"{e}")     
+            
     
+    async def send_code(uow: UnitOfWork, user_id: int):
+        async with uow:
+            try:
+                user:UserDB = await uow.users.get(id=user_id)
+                code= await VerificationCodeService().create(uow, user_id)
+                if code is None:
+                    return JSONResponse(content ={"message":"succes", "user_id": user_id}, status_code=200)
+                else:
+                    send_email_code.delay(email=user.email, code = code)
+                    await uow.session.commit()
+                    await uow.session.close()  
+                    return JSONResponse(content ={"message":"succes", "user_id": user_id}, status_code=200)
+            except EmailSyntaxError as e:
+                    raise HTTPException(status_code=400, detail={"error":e.__str__()})
 
-    # async def sing_up(uow: UOWDep, new_user: UserCreateSchema):
-    #     async with uow:
-    #         try:
-    #             validate_email(new_user.email)
+            except HTTPException as e:
+                logging.exception(e)
+                raise 
 
-    #             chk = await uow.users.check_unique_values(email=new_user.email, name=new_user.name)
-    #             data_dict = {"name":new_user.name, "email":new_user.email, "password_hash": get_password_hash(new_user.password)}
-    #             if chk == "update":
-    #                 user_id = await uow.users.update(data=data_dict, email=new_user.email)
-    #             if chk == "create":
-    #                 user_id = await uow.users.create(**data_dict)
-    #             await uow.commit()
-    #             code =  await VerificationCodeService().create(uow, user_id=user_id)
-    #             if code is None:
-    #                     return JSONResponse(content ={"message":"succes", "user_id": user_id}, status_code=200)
-    #             else:
-    #                 print("Sending")
-    #                 send_email_code.delay(email=new_user.email, code = code)
-    #                 return JSONResponse(content ={"message":"succes", "user_id": user_id}, status_code=200)
-    #         except EmailSyntaxError as e:
-    #             raise HTTPException(status_code=400, detail={"error":e.__str__()})
+            # except Exception as e:
+            #     logging.exception(e)
+            #     raise HTTPException(status_code=500) 
+            
 
-    #         except HTTPException:
-    #             raise
-
-    #         except Exception as e:
-    #             logging.error(e)
-    #             raise HTTPException(status_code=500)     
-
-    
-
-    async def verificate(uow: UOWDep, code: str, user_id: int):
+    async def verification(uow: UnitOfWork, code: str, user_id: int):
         async with uow:
             try:
 
@@ -125,10 +132,6 @@ class AuthenticationService:
                 logging.error(e)
                 await uow.rollback()
                 raise HTTPException(status_code=404, detail="Wrong code")
-        
-
-
-
 
 
     async def login(uow: IUnitOfWork, form_data: OAuth2PasswordRequestForm) -> Tokenn:
@@ -145,59 +148,3 @@ class AuthenticationService:
                 data={"sub": user.name}, live_time_minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
             )
             return Tokenn(access_token=access_token, token_type="bearer")
-        
-
-
-    
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# async def get_current_active_user(
-#     current_user: Annotated[UserReadSchema, Depends(get_current_user)],
-# ):
-#     if current_user.disabled:
-#         raise HTTPException(status_code=400, detail="Inactive user")
-#     return current_user
-
-
-# @app.post("/token")
-# async def login_for_access_token(
-#     uow: UOWDep,
-#     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
-# ) -> Token:
-#     user = authenticate_user(uow, form_data.username, form_data.password)
-#     if not user:
-#         raise HTTPException(
-#             status_code=status.HTTP_401_UNAUTHORIZED,
-#             detail="Incorrect username or password",
-#             headers={"WWW-Authenticate": "Bearer"},
-#         )
-#     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-#     access_token = create_access_token(
-#         data={"sub": user.username}, expires_delta=access_token_expires
-#     )
-#     return Token(access_token=access_token, token_type="bearer")
-
-
-# @app.get("/users/me/", response_model=UserRead)
-# async def read_users_me(
-#     current_user: Annotated[UserRead, Depends(get_current_active_user)],
-# ):
-#     return current_user
-
-
-

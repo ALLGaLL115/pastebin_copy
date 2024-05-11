@@ -21,8 +21,4 @@ async def get_async_session():
 class Base(DeclarativeBase):
     pass
 
-from sqlalchemy import text, create_engine
-engine = create_engine(settings.DATABASE_URL_psycopg2)
-
-
 

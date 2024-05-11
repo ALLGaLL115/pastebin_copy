@@ -4,7 +4,7 @@ from typing import Annotated
 
 from fastapi.security import OAuth2PasswordBearer
 from models import User
-from shcemas.user_schemas import UserDB
+from schemas.user_schemas import UserDB
 from utils.unit_of_work import IUnitOfWork, UnitOfWork
 from jose import jwt, JWTError
 from config import settings

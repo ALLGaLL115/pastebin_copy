@@ -1,2 +1,6 @@
 .env
+.venv
 .gitignore
+.test.env
+Dockerfile
+trash_code.py

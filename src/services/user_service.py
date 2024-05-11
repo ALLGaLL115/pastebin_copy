@@ -3,7 +3,7 @@ import logging
 from asyncpg.exceptions import UniqueViolationError
 from fastapi import HTTPException, status
 from fastapi.responses import JSONResponse
-from shcemas.user_schemas import UserCreateSchema, UserDB, UserReadSchema
+from schemas.user_schemas import UserCreateSchema, UserDB, UserReadSchema
 from services.auth_service import get_password_hash
 from utils.unit_of_work import IUnitOfWork, UnitOfWork
 
@@ -14,29 +14,26 @@ from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 
 class UserService():
 
-    # async def create(self, uow: IUnitOfWork, new_user: UserCreateSchema):
-    #     async with uow:
-    #         try:
-    #             validate_email(new_user.email)
-
-    #             chk = await uow.users.check_unique_values(email=new_user.email, name=new_user.name)
-    #             data_dict = {"name":new_user.name, "email":new_user.email, "password_hash": get_password_hash(new_user.password)}
-    #             if chk == "update":
-    #                 user_id = await uow.users.update(data=data_dict, email=new_user.email)
-    #             if chk == "create":
-    #                 user_id = await uow.users.create(**data_dict)
-    #             await uow.commit()
-    #             return user_id
+    async def create(self, uow: IUnitOfWork, new_user: UserCreateSchema):
+        async with uow:
+            try:
+                chk = await uow.users.check_unique_values(email=new_user.email, name=new_user.name)
+                data_dict = {"name":new_user.name, "email":new_user.email, "password_hash": get_password_hash(new_user.password)}
+                if chk == "update":
+                    user: UserDB = await uow.users.update(data=data_dict, email=new_user.email)
+                if chk == "create":
+                    user: UserDB = await uow.users.create(**data_dict)
+                return user
             
-    #         except EmailSyntaxError as e:
-    #             raise HTTPException(status_code=400, detail={"error":e.__str__()})
+            except EmailSyntaxError as e:
+                raise HTTPException(status_code=400, detail={"error":e.__str__()})
 
-    #         except HTTPException:
-    #             raise
+            except HTTPException:
+                raise
 
-            # except Exception as e:
-            #     logging.error(e)
-            #     raise HTTPException(status_code=500)     
+            except Exception as e:
+                logging.error(e)
+                raise HTTPException(status_code=500)     
         
 
     async def update(self, uow: IUnitOfWork, curent_user: UserDB, email: str, updates: UserCreateSchema):

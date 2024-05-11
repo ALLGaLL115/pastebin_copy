@@ -4,11 +4,10 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import VARCHAR, Column, INTEGER, ForeignKey, String, text, TIMESTAMP
 
 from database import Base
-from shcemas.message_schemas import MessageDB
-from shcemas.subscription_schemas import SubscriptionDB
-from shcemas.user_schemas import UserDB
-from shcemas.verification_code_schemas import VerifycationCodeDB
-
+from schemas.message_schemas import MessageDB
+from schemas.subscription_schemas import SubscriptionDB
+from schemas.user_schemas import UserDB
+from schemas.verification_code_schemas import VerifycationCodeDB
 
 created_at = Annotated[datetime, mapped_column(server_default=text("TIMEZONE('utc', now())"))]
 # exxx = Annotated[datetime, mapped_column(server_default=text("TIMEZONE('utc', now() + interval '1 minute')"))]
@@ -19,8 +18,8 @@ updated_at = Annotated[datetime, mapped_column(server_default=text("TIMEZONE('ut
 
 class Subscription(Base):
     __tablename__="subscriptions"
-    subscriber_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True, )
-    target_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True, )
+    subscriber_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True, )
+    target_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True, )
     subscriber = relationship("User", foreign_keys=[subscriber_id])
     target = relationship("User", foreign_keys=[target_id])
 
@@ -113,7 +112,7 @@ class VerifycationCode(Base):
             code = self.code,
             expiry_time = self.expiry_time,
         )
-    
+     
 
     
 

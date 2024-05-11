@@ -11,9 +11,6 @@ from api.auth import router as auth_router
 from api.subscriptions import router as subscription_router
 
 
-REDIS_URL = 'redis://localhost'
-REDIS_DB = 0
-REDIS_PASS = 'RedisPassword'
 
 redis = None
 
@@ -23,7 +20,7 @@ async def lifespan(app: FastAPI):
     global redis
 
     if redis is None:
-        pool = aioredis.ConnectionPool.from_url(REDIS_URL)
+        pool = aioredis.ConnectionPool.from_url(settings.REDIS_URL)
         redis = await aioredis.Redis(connection_pool=pool)
 
     yield
